@@ -69,7 +69,21 @@ def _find_aimemory_mcp_command() -> str:
     return "aimemory-mcp"
 
 
-def _install_openclaw_extension(openclaw_dir: Path) -> None:
+def _resolve_db_path(db_path: str | None) -> str:
+    """Resolve the database path to an absolute path.
+
+    Priority:
+      1. Explicitly provided ``db_path`` argument
+      2. ``AIMEMORY_DB_PATH`` environment variable
+      3. ``./memory_db`` relative to cwd (resolved to absolute)
+    """
+    import os
+
+    path = db_path or os.environ.get("AIMEMORY_DB_PATH") or "./memory_db"
+    return str(Path(path).resolve())
+
+
+def _install_openclaw_extension(openclaw_dir: Path, *, db_path: str) -> None:
     """Install the AIMemory extension into OpenClaw's extensions directory.
 
     Creates ~/.openclaw/extensions/aimemory/ with the plugin files that
@@ -111,16 +125,18 @@ def _install_openclaw_extension(openclaw_dir: Path) -> None:
 
     # index.ts — bridge plugin
     index_ts = _load_template("openclaw_extension.ts")
-    # Inject the resolved MCP command path
     index_ts = index_ts.replace("__AIMEMORY_MCP_COMMAND__", mcp_command)
+    index_ts = index_ts.replace("__AIMEMORY_DB_PATH__", db_path)
     (ext_dir / "index.ts").write_text(index_ts, encoding="utf-8")
 
     print(f"  Installed extension to {ext_dir}")
+    print(f"  DB path: {db_path}")
 
 
-def setup_openclaw(workspace: Path) -> None:
+def setup_openclaw(workspace: Path, *, db_path: str | None = None) -> None:
     """Inject AIMemory instructions into OpenClaw workspace files."""
     workspace = workspace.expanduser()
+    resolved_db_path = _resolve_db_path(db_path)
 
     # SOUL.md — Memory Continuity section
     soul_path = workspace / "SOUL.md"
@@ -136,16 +152,18 @@ def setup_openclaw(workspace: Path) -> None:
 
     # Install OpenClaw extension
     openclaw_dir = workspace.parent
-    _install_openclaw_extension(openclaw_dir)
+    _install_openclaw_extension(openclaw_dir, db_path=resolved_db_path)
 
 
-def setup_claude(claude_dir: Path) -> None:
+def setup_claude(claude_dir: Path, *, db_path: str | None = None) -> None:
     """Inject AIMemory instructions into Claude Code's CLAUDE.md."""
     claude_dir = claude_dir.expanduser()
+    resolved_db_path = _resolve_db_path(db_path)
     claude_md = claude_dir / "CLAUDE.md"
     claude_content = _load_template("claude.md")
     _inject_block(claude_md, claude_content)
     print(f"  Updated {claude_md}")
+    print(f"  DB path: {resolved_db_path}")
 
 
 def main() -> None:
@@ -156,6 +174,13 @@ def main() -> None:
     )
     subparsers = parser.add_subparsers(dest="client")
 
+    # Common argument for db-path
+    db_path_help = (
+        "Absolute path to the ChromaDB database directory. "
+        "All clients (MCP server, live viewer, extension) will use this path. "
+        "(default: $AIMEMORY_DB_PATH or ./memory_db resolved to absolute)"
+    )
+
     # openclaw subcommand
     oc = subparsers.add_parser("openclaw", help="Setup for OpenClaw")
     oc.add_argument(
@@ -163,9 +188,11 @@ def main() -> None:
         default="~/.openclaw/workspace",
         help="OpenClaw workspace path (default: ~/.openclaw/workspace)",
     )
+    oc.add_argument("--db-path", default=None, help=db_path_help)
 
     # claude subcommand
-    subparsers.add_parser("claude", help="Setup for Claude Code")
+    cl = subparsers.add_parser("claude", help="Setup for Claude Code")
+    cl.add_argument("--db-path", default=None, help=db_path_help)
 
     args = parser.parse_args()
 
@@ -176,9 +203,9 @@ def main() -> None:
     print(f"Setting up AIMemory for {args.client}...")
 
     if args.client == "openclaw":
-        setup_openclaw(Path(args.workspace))
+        setup_openclaw(Path(args.workspace), db_path=args.db_path)
     elif args.client == "claude":
-        setup_claude(Path("~/.claude"))
+        setup_claude(Path("~/.claude"), db_path=args.db_path)
 
     print("Done!")
 

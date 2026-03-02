@@ -2,8 +2,8 @@
 # AIMemory MCP Server — OpenClaw 자동 설치 스크립트
 #
 # Usage:
-#   bash scripts/install_openclaw.sh          # 설치
-#   bash scripts/install_openclaw.sh --remove  # 제거
+#   bash scripts/install_openclaw.sh [--db-path /absolute/path/to/db]  # 설치
+#   bash scripts/install_openclaw.sh --remove                           # 제거
 
 set -euo pipefail
 
@@ -11,6 +11,7 @@ PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 MCPORTER_CONFIG="${HOME}/.mcporter/mcporter.json"
 TOOLS_MD="${HOME}/.openclaw/workspace/TOOLS.md"
 SERVER_NAME="aimemory"
+DB_PATH=""
 
 TOOLS_BLOCK_START="## AIMemory"
 TOOLS_BLOCK_END="<!-- \/aimemory -->"
@@ -18,7 +19,18 @@ TOOLS_BLOCK_END="<!-- \/aimemory -->"
 TOOLS_CONTENT_FILE="${PROJECT_DIR}/scripts/tools_content.md"
 
 install() {
+    # DB 경로 결정: --db-path > AIMEMORY_DB_PATH env > 프로젝트/memory_db
+    if [ -z "$DB_PATH" ]; then
+        DB_PATH="${AIMEMORY_DB_PATH:-${PROJECT_DIR}/memory_db}"
+    fi
+    # 상대경로면 절대경로로 변환
+    case "$DB_PATH" in
+        /*) ;; # 이미 절대경로
+        *)  DB_PATH="$(cd "$(dirname "$DB_PATH")" 2>/dev/null && pwd)/$(basename "$DB_PATH")" ;;
+    esac
+
     echo "🧠 AIMemory MCP 서버 설치 중..."
+    echo "   DB 경로: ${DB_PATH}"
 
     # 1. 의존성 확인
     if ! command -v mcporter &>/dev/null; then
@@ -57,7 +69,7 @@ install() {
         --arg python \
         --arg -m \
         --arg aimemory.mcp \
-        --env "AIMEMORY_DB_PATH=${PROJECT_DIR}/memory_db" \
+        --env "AIMEMORY_DB_PATH=${DB_PATH}" \
         --env "AIMEMORY_LANGUAGE=ko" \
         --env "AIMEMORY_EMBEDDING_MODEL=intfloat/multilingual-e5-small" \
         --env "AIMEMORY_LOG_LEVEL=INFO" \
@@ -115,11 +127,18 @@ remove() {
     echo "✅ 제거 완료"
 }
 
-case "${1:-}" in
-    --remove|--uninstall|-r)
-        remove
-        ;;
-    *)
-        install
-        ;;
-esac
+ACTION="install"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --remove|--uninstall|-r)
+            ACTION="remove"; shift ;;
+        --db-path)
+            DB_PATH="$2"; shift 2 ;;
+        --db-path=*)
+            DB_PATH="${1#*=}"; shift ;;
+        *)
+            echo "Unknown option: $1"; exit 1 ;;
+    esac
+done
+
+"$ACTION"

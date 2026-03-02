@@ -73,6 +73,32 @@ aimemory-setup claude
 
 This injects memory usage instructions into your client's configuration files (`SOUL.md`/`TOOLS.md` for OpenClaw, `CLAUDE.md` for Claude Code). Re-run anytime to update.
 
+<details>
+<summary>Custom database path</summary>
+
+By default, memories are stored in `./memory_db` (resolved to an absolute path at install time). To use a custom location:
+
+```bash
+# OpenClaw — sets the DB path in the extension and mcporter config
+aimemory-setup openclaw --db-path /path/to/my/memory_db
+
+# Claude Code
+aimemory-setup claude --db-path /path/to/my/memory_db
+
+# Shell script (OpenClaw)
+bash scripts/install_openclaw.sh --db-path /path/to/my/memory_db
+```
+
+You can also set the `AIMEMORY_DB_PATH` environment variable, which all components respect:
+
+```bash
+export AIMEMORY_DB_PATH=/path/to/my/memory_db
+aimemory-setup openclaw   # picks up the env var automatically
+```
+
+All components (MCP server, live viewer, OpenClaw extension) will use the same absolute path, ensuring data consistency.
+</details>
+
 ### 3. Connect to OpenClaw
 
 ```bash
@@ -159,7 +185,10 @@ aimemory-mcp --with-live
 # Option 2: standalone server
 aimemory-live --port 8765
 
-# Option 3: via environment variable
+# Option 3: standalone with custom DB path
+aimemory-live --db-path /path/to/memory_db
+
+# Option 4: via environment variable
 AIMEMORY_LIVE=1 aimemory-mcp
 ```
 
@@ -198,7 +227,7 @@ All settings via environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AIMEMORY_DB_PATH` | `./memory_db` | ChromaDB persistence directory |
+| `AIMEMORY_DB_PATH` | `./memory_db` | ChromaDB persistence directory (use absolute path to ensure all components share the same DB) |
 | `AIMEMORY_LANGUAGE` | `ko` | Language for pattern matching (`ko` / `en`) |
 | `AIMEMORY_EMBEDDING_MODEL` | `intfloat/multilingual-e5-small` | Sentence-transformer model |
 | `AIMEMORY_LOG_LEVEL` | `INFO` | Logging level |

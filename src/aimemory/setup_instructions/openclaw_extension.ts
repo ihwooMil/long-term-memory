@@ -4,6 +4,7 @@ import { createInterface } from "node:readline";
 // ── MCP stdio client ────────────────────────────────────────────────
 
 const MCP_COMMAND = "__AIMEMORY_MCP_COMMAND__";
+const DB_PATH = "__AIMEMORY_DB_PATH__";
 
 interface JsonRpcRequest {
   jsonrpc: "2.0";
@@ -33,7 +34,10 @@ function ensureMcp(): ChildProcess {
 
   mcpProcess = spawn(MCP_COMMAND, [], {
     stdio: ["pipe", "pipe", "pipe"],
-    env: { ...process.env },
+    env: {
+      ...process.env,
+      AIMEMORY_DB_PATH: process.env.AIMEMORY_DB_PATH || DB_PATH,
+    },
   });
 
   const rl = createInterface({ input: mcpProcess.stdout! });
