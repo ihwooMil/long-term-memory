@@ -54,7 +54,8 @@ class ConversationLog:
         """Append a conversation turn. Returns the row id."""
         now = datetime.now().isoformat()
         cursor = self._conn.execute(
-            "INSERT INTO conversation_turns (conversation_id, turn_index, role, content, timestamp) "
+            "INSERT INTO conversation_turns "
+            "(conversation_id, turn_index, role, content, timestamp) "
             "VALUES (?, ?, ?, ?, ?)",
             (conversation_id, turn_index, role, content, now),
         )
